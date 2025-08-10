@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DailyTakaBd Lucky Wheel</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #222;
+    color: #fff;
+    text-align: center;
+    padding: 20px;
+  }
+  h1 {
+    color: #ffcc00;
+    margin-bottom: 10px;
+  }
+  .coins {
+    font-size: 1.3rem;
+    margin-bottom: 20px;
+  }
+  #wheel {
+    margin: 20px auto;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    border: 10px solid #444;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 0 20px #ffcc00;
+  }
+  #wheel canvas {
+    width: 100%;
+    height: 100%;
+  }
+  #spinBtn {
+    margin-top: 30px;
+    padding: 15px 40px;
+    font-size: 1.2rem;
+    background: #ffcc00;
+    border: none;
+    color: #222;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 8px;
+    box-shadow: 0 0 15px #ffcc00;
+  }
+  #spinBtn:disabled {
+    background: #999;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+  #message {
+    margin-top: 25px;
+    font-size: 1.4rem;
+    min-height: 40px;
+  }
+  /* Pointer */
+  #pointer {
+    position: absolute;
+    top: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; 
+    height: 0; 
+    border-left: 20px solid transparent;
+    border-right: 20px solid transparent;
+    border-bottom: 30px solid #ffcc00;
+    z-index: 10;
+  }
+</style>
+</head>
+<body>
+
+<h1>DailyTakaBd Lucky Wheel</h1>
+<div class="coins">তোমার কয়েন: <span id="coins">500</span></div>
+
+<div id="wheel">
+  <div id="pointer"></div>
+  <canvas id="canvas" width="300" height="300"></canvas>
+</div>
+
+<button id="spinBtn">স্পিন করো (৫০ কয়েন)</button>
+
+<div id="message"></div>
+
+<script>
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const spinBtn = document.getElementById('spinBtn');
+  const coinsDisplay = document.getElementById('coins');
+  const message = document.getElementById('message');
+
+  let coins = 500;  // শুরুতে কয়েন
+  const costPerSpin = 50; // স্পিনের জন্য কত কয়েন খরচ হবে
+
+  const segments = [
+    {label: '৫ টাকা', value: 5, color: '#f44336'},
+    {label: '১০ টাকা', value: 10, color: '#2196f3'},
+    {label: '২০ টাকা', value: 20, color: '#4caf50'},
+    {label: '৫০ টাকা', value: 50, color: '#ff9800'},
+    {label: '১০০ টাকা', value: 100, color: '#9c27b0'}
+  ];
+
+  const segmentCount = segments.length;
+  const segmentAngle = 2 * Math.PI / segmentCount;
+
+  let startAngle = 0;
+  let isSpinning = false;
+  let spinTimeout = null;
+  let spinAngleStart = 0;
+  let spinTime = 0;
+  let spinTimeTotal = 0;
+
+  function drawWheel() {
+    const radius = canvas.width / 2;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw segments
+    for(let i=0; i<segmentCount; i++) {
+      const angle = startAngle + i * segmentAngle;
+
+      ctx.beginPath();
+      ctx.moveTo(radius, radius);
+      ctx.arc(radius, radius, radius, angle, angle + segmentAngle);
+      ctx.closePath();
+
+      ctx.fillStyle = segments[i].color;
+      ctx.fill();
+
+      // Text
+      ctx.save();
+      ctx.translate(radius, radius);
+      ctx.rotate(angle + segmentAngle / 2);
+      ctx.textAlign = "right";
+      ctx.fillStyle = "white";
+      ctx.font = "bold 18px Arial";
+      ctx.fillText(segments[i].label, radius - 10, 10);
+      ctx.restore();
+    }
+  }
+
+  function rotateWheel() {
+    spinTime += 30;
+    if(spinTime >= spinTimeTotal) {
+      stopRotateWheel();
+      return;
+    }
+
+    const spinAngle = spinAngleStart - easeOut(spinTime, 0, spinAngleStart, spinTimeTotal);
+    startAngle += (spinAngle * Math.PI / 180);
+    drawWheel();
+    spinTimeout = setTimeout(rotateWheel, 30);
+  }
+
+  function stopRotateWheel() {
+    clearTimeout(spinTimeout);
+    const degrees = startAngle * 180 / Math.PI + 90;
+    const arcd = segmentAngle * 180 / Math.PI;
+    const index = Math.floor((360 - (degrees % 360)) / arcd) % segmentCount;
+
+    const winningSegment = segments[index];
+
+    coins += winningSegment.value;
+    coinsDisplay.textContent = coins;
+
+    message.textContent = `অভিনন্দন! তুমি জিতে গেছো ${winningSegment.label}`;
+    isSpinning = false;
+    spinBtn.disabled = false;
+  }
+
+  function easeOut(t, b, c, d) {
+    const ts = (t/=d)*t;
+    const tc = ts*t;
+    return b+c*(tc + -3*ts + 3*t);
+  }
+
+  spinBtn.addEventListener('click', () => {
+    if(isSpinning) return;
+
+    if(coins < costPerSpin) {
+      alert('তোমার কাছে স্পিন করার জন্য পর্যাপ্ত কয়েন নেই।');
+      return;
+    }
+
+    coins -= costPerSpin;
+    coinsDisplay.textContent = coins;
+
+    spinAngleStart = Math.floor(3600 + Math.random() * 360); // 10 ফু্ল স্পিন + 0-360 ডিগ্রী র্যান্ডম
+    spinTime = 0;
+    spinTimeTotal = 4000; // 4 সেকেন্ড স্পিনের মোট সময়
+
+    isSpinning = true;
+    message.textContent = '';
+    rotateWheel();
+    spinBtn.disabled = true;
+  });
+
+  drawWheel();
+  coinsDisplay.textContent = coins;
+</script>
+
+</body>
+</html>
